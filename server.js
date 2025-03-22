@@ -14,6 +14,9 @@ app.use(cors());
 // MongoDB connection
 connectDB();
 
+mongoose.set('strictQuery', true);  // To suppress the warning
+
+
 // Routes
 app.use('/api/contact', contactRoutes);
 
