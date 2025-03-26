@@ -14,17 +14,18 @@ connectDB();
 app.use(express.json());
 
 // 🔥 CORS Configuration
+// 🔥 CORS Configuration
 const allowedOrigins = [
-  'http://localhost:4200',                       // Local Angular frontend
-  'https://jainam-website1.netlify.app/'           // Deployed frontend
+  'http://localhost:4200',                     // Local Angular frontend
+  'https://jainam-website1.netlify.app'        // Deployed frontend (without trailing slash)
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (like Postman) or whitelisted origins
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      console.log(`Blocked by CORS: ${origin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -32,6 +33,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type'],
   credentials: true
 }));
+
 
 // Routes
 app.use('/api/contact', contactRoutes);
