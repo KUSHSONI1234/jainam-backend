@@ -7,12 +7,29 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
+    "bcrypt": "^5.1.1",
+    "bcryptjs": "^3.0.2",
+    "body-parser": "^1.20.3",
     "cors": "^2.8.5",
-    "dotenv": "^16.0.1",
-    "express": "^4.18.2",
-    "mongoose": "^6.7.1"
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^6.13.8",
+    "nodemailer": "^6.10.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.22"
-  }
+  },
+  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KUSHSONI1234/jainam-backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/KUSHSONI1234/jainam-backend/issues"
+  },
+  "homepage": "https://github.com/KUSHSONI1234/jainam-backend#readme"
 }
