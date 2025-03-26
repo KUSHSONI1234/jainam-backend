@@ -16,7 +16,7 @@ app.use(express.json());
 // 🔥 CORS Configuration
 const allowedOrigins = [
   'http://localhost:4200',                       // Local Angular frontend
-  'https://jainam-website.netlify.app'           // Deployed frontend
+  'https://jainam-website1.netlify.app/'           // Deployed frontend
 ];
 
 app.use(cors({
