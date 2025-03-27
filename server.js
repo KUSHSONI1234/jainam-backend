@@ -1,45 +1,54 @@
-const express = require('express');
-const dotenv = require('dotenv');
-const cors = require('cors');
-const connectDB = require('./db');
-const contactRoutes = require('./routes/contactRoutes');
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const fileUpload = require("express-fileupload");
+const path = require("path");
+const bodyParser = require("body-parser");
+const connectDB = require("./db");  // MongoDB connection
+const contactRoutes = require("./routes/contact");  // Contact form routes
+const adbHandler = require("./adbHandler");  // ADB handler
 
 dotenv.config();
 const app = express();
-
-// Connect MongoDB
-connectDB();
-
-// Middleware
-app.use(express.json());
-
-// 🔥 CORS Configuration
-// 🔥 CORS Configuration
-const allowedOrigins = [
-  'http://localhost:4200',                     // Local Angular frontend
-  'https://jainam-website1.netlify.app'        // Deployed frontend (without trailing slash)
-];
-
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      console.log(`Blocked by CORS: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type'],
-  credentials: true
-}));
-
-
-// Routes
-app.use('/api/contact', contactRoutes);
-
 const PORT = process.env.PORT || 5000;
 
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(bodyParser.json());
+app.use(fileUpload());
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Connect to MongoDB
+connectDB();
+
+// ADB Routes
+// Route to connect and display device info
+app.get("/connect", async (req, res) => {
+  const result = adbHandler.connectDevice();
+  res.send(result);
+});
+
+// Route to fetch images only
+app.get("/images", async (req, res) => {
+  try {
+    const media = await adbHandler.fetchImages();
+    
+    if (media.success) {
+      res.json(media.images);
+    } else {
+      res.status(500).send(media.message);
+    }
+  } catch (error) {
+    res.status(500).send("Error fetching images");
+  }
+});
+
+// Contact Form Routes
+// Route to handle contact form submissions
+app.use('/api/contact', contactRoutes);
+
+// Start Server
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
