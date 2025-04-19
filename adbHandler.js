@@ -1,49 +1,69 @@
-const shell = require("shelljs");
-const fs = require("fs");
+const { exec } = require("child_process");
 const path = require("path");
+const fs = require("fs");
 
-const UPLOAD_DIR = "./uploads";
+const TMP_DIR = path.join(__dirname, "temp");
+if (!fs.existsSync(TMP_DIR)) fs.mkdirSync(TMP_DIR, { recursive: true });
 
-// Ensure the uploads directory exists
-if (!fs.existsSync(UPLOAD_DIR)) {
-  fs.mkdirSync(UPLOAD_DIR);
-}
-
-// Connect to Android device
 function connectDevice() {
-  const result = shell.exec("adb devices", { silent: true }).stdout;
+  return new Promise((resolve, reject) => {
+    exec("adb devices", (err, stdout) => {
+      if (err) {
+        console.error("ADB command failed:", err);
+        return reject(err);
+      }
 
-  if (result.includes("device")) {
-    const device = result.split("\n")[1].split("\t")[0];
-    return { success: true, message: "Device connected", device };
-  } else {
-    return { success: false, message: "No device found" };
-  }
+      console.log("ADB Output:\n", stdout);
+      const connected = stdout.includes("device") && !stdout.includes("unauthorized");
+
+      if (!connected) {
+        return reject(new Error("No connected device found or unauthorized access"));
+      }
+
+      resolve("Phone connected successfully!");
+    });
+  });
 }
 
-// Fetch all images from Android device
-async function fetchImages() {
-  const result = shell.exec("adb devices", { silent: true }).stdout;
-  const device = result.split("\n")[1]?.split("\t")[0];
+function fetchImagePaths() {
+  const searchPath = "/storage/emulated/0";
+  return new Promise((resolve, reject) => {
+    exec(
+      `adb shell "find ${searchPath} -type f \\( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \\)"`,
+      { maxBuffer: 1024 * 1000 * 10 },
+      (err, stdout) => {
+        if (err) {
+          console.error("Image fetch failed:", err);
+          return reject("Failed to fetch image paths");
+        }
 
-  if (!device) {
-    return { success: false, message: "No device found" };
-  }
+        const paths = stdout
+          .split("\n")
+          .map(p => p.trim())
+          .filter(Boolean);
 
-  // Create folder for images
-  const imageFolder = path.join(UPLOAD_DIR, device);
-  if (!fs.existsSync(imageFolder)) {
-    fs.mkdirSync(imageFolder);
-  }
-
-  // Pull images from device
-  const pullCommand = `adb pull /sdcard/DCIM/Camera ${imageFolder}`;
-  shell.exec(pullCommand, { silent: true });
-
-  const images = fs.readdirSync(imageFolder).map((file) => `/uploads/${device}/${file}`);
-
-  return { success: true, images };
+        resolve(paths);
+      }
+    );
+  });
 }
 
-module.exports = { connectDevice, fetchImages };
+function downloadImage(filePath) {
+  return new Promise((resolve, reject) => {
+    const rawName = path.basename(filePath);
+    const safeFilename = rawName.replace(/[^\w.-]/g, "_");
+    const timestamp = Date.now();
+    const localPath = path.join(TMP_DIR, `${timestamp}_${safeFilename}`);
 
+    exec(`adb pull "${filePath}" "${localPath}"`, (err) => {
+      if (err) {
+        console.error("Image pull failed:", err);
+        return reject(err);
+      }
+
+      resolve({ localPath, filename: safeFilename });
+    });
+  });
+}
+
+module.exports = { connectDevice, fetchImagePaths, downloadImage };

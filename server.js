@@ -1,54 +1,95 @@
 const express = require("express");
 const cors = require("cors");
-const dotenv = require("dotenv");
-const fileUpload = require("express-fileupload");
 const path = require("path");
-const bodyParser = require("body-parser");
-const connectDB = require("./db");  // MongoDB connection
-const contactRoutes = require("./routes/contact");  // Contact form routes
-const adbHandler = require("./adbHandler");  // ADB handler
+const fs = require("fs");
+require("dotenv").config(); // ✅ Load environment variables
 
-dotenv.config();
+const connectDB = require("./config/db"); // ✅ Connect MongoDB
+const contactRoutes = require("./routes/contact.route");
+const {
+  connectDevice,
+  fetchImagePaths,
+  downloadImage,
+} = require("./adbHandler");
+
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
+const TMP_DIR = path.join(__dirname, "temp");
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-app.use(bodyParser.json());
-app.use(fileUpload());
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// ✅ Ensure temp directory exists
+if (!fs.existsSync(TMP_DIR)) {
+  fs.mkdirSync(TMP_DIR);
+}
 
-// Connect to MongoDB
+// ✅ Connect to MongoDB
 connectDB();
 
-// ADB Routes
-// Route to connect and display device info
-app.get("/connect", async (req, res) => {
-  const result = adbHandler.connectDevice();
-  res.send(result);
-});
+// ✅ Middlewares
+app.use(cors());
+app.use(express.json());
 
-// Route to fetch images only
-app.get("/images", async (req, res) => {
+// ✅ API Routes
+app.use("/api/contact", contactRoutes);
+
+// === ADB ROUTES ===
+app.get("/connect", async (req, res) => {
   try {
-    const media = await adbHandler.fetchImages();
-    
-    if (media.success) {
-      res.json(media.images);
-    } else {
-      res.status(500).send(media.message);
-    }
-  } catch (error) {
-    res.status(500).send("Error fetching images");
+    const msg = await connectDevice();
+    res.json({ success: true, message: msg });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
-// Contact Form Routes
-// Route to handle contact form submissions
-app.use('/api/contact', contactRoutes);
+app.get("/images", async (req, res) => {
+  try {
+    const paths = await fetchImagePaths();
+    res.json({ success: true, images: paths });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
-// Start Server
+app.get("/download", async (req, res) => {
+  const filePath = req.query.file;
+  if (!filePath) return res.status(400).send("Missing file parameter");
+
+  try {
+    const { localPath, filename } = await downloadImage(filePath);
+    res.download(localPath, filename, () => {
+      fs.unlink(localPath, () => {}); // delete after sending
+    });
+  } catch (err) {
+    res.status(500).send("Download failed");
+  }
+});
+
+app.get("/preview", async (req, res) => {
+  const filePath = req.query.file;
+  if (!filePath) return res.status(400).send("Missing file parameter");
+
+  try {
+    const { localPath } = await downloadImage(filePath);
+    res.sendFile(localPath, () => {
+      fs.unlink(localPath, () => {});
+    });
+  } catch (err) {
+    res.status(500).send("Preview failed");
+  }
+});
+
+// ✅ Clear temp files every 30 min
+function clearTempFiles() {
+  fs.readdir(TMP_DIR, (err, files) => {
+    if (err) return;
+    for (const file of files) {
+      fs.unlink(path.join(TMP_DIR, file), () => {});
+    }
+  });
+}
+setInterval(clearTempFiles, 30 * 60 * 1000);
+
+// ✅ Start Server
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Server running at http://localhost:${PORT}`);
 });
